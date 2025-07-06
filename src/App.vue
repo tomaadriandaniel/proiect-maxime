@@ -1,4 +1,3 @@
-<!-- App.vue -->
 <template>
   <div>
     <!-- 1 ▸ TITLU + EROARE -->
@@ -32,9 +31,12 @@
         </div>
 
         <div v-if="grid.length" class="grid-4x4">
-          <div v-for="(cell, idx) in grid" :key="idx" class="cell" :class="cell.revealed ? 'revealed' : 'hidden'"
-            @click="cell.revealed = !cell.revealed">
-            {{ cell.revealed ? cell.char : '?' }}
+          <div v-for="(cell, idx) in grid" :key="idx" class="cell" :class="{
+            hidden: cell.state === 0,
+            miss: cell.state === 1,
+            revealed: cell.state === 2
+          }" @click="handleClick(cell)">
+            {{ cell.state === 2 ? cell.char : '?' }}
           </div>
         </div>
       </div>
@@ -42,7 +44,6 @@
   </div>
 </template>
 
-<!-- SCRIPT -->
 <script setup>
 import { ref } from 'vue'
 
@@ -59,6 +60,15 @@ function showError(msg) {
   errorMessage.value = msg
   showErrorPanel.value = true
   setTimeout(() => (showErrorPanel.value = false), 4000)
+}
+
+/* -- click pe celulă -- */
+function handleClick(cell) {
+  if (cell.hasLetter) {
+    cell.state = cell.state === 2 ? 0 : 2
+  } else {
+    cell.state = cell.state === 1 ? 0 : 1
+  }
 }
 
 /* -- calcule -- */
@@ -84,38 +94,45 @@ function calculeazaMaxime() {
     if (!map.has(cls) || n > map.get(cls)) map.set(cls, n);
   }
 
-  // Extragem intrările mapului într-un array și le sortăm după key (clasa)
   const sortedEntries = [...map.entries()].sort((a, b) => a[0] - b[0]);
 
   maxime.value = [];
   litere.value = [];
 
   for (let i = 0; i < sortedEntries.length; i++) {
-    const value = sortedEntries[i][1]; // maximul pe clasă
+    const value = sortedEntries[i][1];
     maxime.value.push(value);
     litere.value.push(String.fromCharCode((value % 26) + 65));
   }
 
   /* -- construim grila 4×4 -- */
-  const needed = 16
-  const list = []
-  let i = 0
-  while (list.length < needed) {
-    list.push(litere.value[i])
-    i = (i + 1) % litere.value.length
+  const TOTAL = 16;
+  grid.value = [];
+  for (let i = 0; i < TOTAL; i++) {
+    grid.value.push({ char: '', hasLetter: false, state: 0 });
   }
-  /* shuffle */
-  for (let j = list.length - 1; j > 0; j--) {
-    const k = Math.floor(Math.random() * (j + 1))
-    const temp = list[j];
-    list[j] = list[k];
-    list[k] = temp;
+
+  /* alegem poziții aleatoare DISTINCTE pentru fiecare literă */
+  const pozitiiDisponibile = [];
+  for (let i = 0; i < TOTAL; i++) pozitiiDisponibile.push(i);
+
+  /* amestecăm pozițiile */
+  for (let i = pozitiiDisponibile.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = pozitiiDisponibile[i];
+    pozitiiDisponibile[i] = pozitiiDisponibile[j];
+    pozitiiDisponibile[j] = temp;
   }
-  grid.value = list.map(ch => ({ char: ch, revealed: false }))
+
+  /* plasăm literele în poziții random */
+  for (let i = 0; i < litere.value.length && i < TOTAL; i++) {
+    const idx = pozitiiDisponibile[i];
+    grid.value[idx].char = litere.value[i];
+    grid.value[idx].hasLetter = true;
+  }
 }
 </script>
 
-<!-- STYLE -->
 <style scoped>
 /* Titlu + eroare */
 .main-title {
@@ -170,16 +187,34 @@ function calculeazaMaxime() {
 
 .input-row button {
   padding: 0.5rem 1rem;
+  background-color: #d1d1d1;
+  /* Albastru pronunțat */
+  color: rgb(0, 0, 0);
+  /* Text alb */
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.1s ease-in-out;
 }
+
+.input-row button:hover {
+  background-color: #a4b8ce;
+  /* Albastru mai închis la hover */
+}
+
+/* Efect când este apăsat */
+.input-row button:active {
+  background-color: #d1d1d1;
+  transform: scale(0.97);}
+
 
 /* Zonă fixă pentru rezultate + grid */
 .display-wrapper {
-  /* ← rezervă spațiu, împiedică “săritul” */
   min-height: 400px;
-  /* ajustează după preferințe */
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;  
+  justify-content: flex-start;
 }
 
 /* Rezultate */
@@ -224,17 +259,18 @@ function calculeazaMaxime() {
   transition: background .2s;
 }
 
-.cell:hover {
-  background: #e4e4e4;
-}
-
+/* Culoare default: roșu deschis (hidden) */
 .cell.hidden {
-  background-color: #ffecec;
-  /* roșu deschis */
+  background-color: #ee5555;
 }
 
+/* Culoare pentru click greșit (miss) */
+.cell.miss {
+  background-color: #30a9be;
+}
+
+/* Culoare pentru litere descoperite (revealed) */
 .cell.revealed {
-  background-color: #eaffea;
-  /* verde deschis */
+  background-color: #35f535;
 }
 </style>
